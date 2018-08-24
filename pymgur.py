@@ -18,6 +18,7 @@ def get_args():
     p.add_argument("--no-verify", help="Do not verify ssl certificate", action="store_true", default=False)
     p.add_argument("-i", "--image", help="Download an image")
     p.add_argument("-a", "--album", help="Download an album")
+    p.add_argument("-u", "--upload", help="Upload an image")
     p.add_argument("-o", "--output", help="Output directory for downloaded content", default=".")
 
     return p.parse_args()
@@ -60,6 +61,18 @@ class Pymgur(object):
         else:
             return data.content
 
+    def post(self, endpoint, data, fmt=None):
+        data=self.s.post( \
+            f"{BASE_URL}{endpoint}", \
+            headers={'Authorization': f'Client-ID {self.cid}'}, \
+            data=data, \
+            verify=self.verify \
+        )
+        if fmt == 'json':
+            return data.json()
+        else:
+            return data.content
+
 
 def get_ext(imgtype):
     ext = ""
@@ -73,6 +86,20 @@ def get_ext(imgtype):
 def main():
     args = get_args()
     pymgur = Pymgur(get_secrets(), args.no_verify)
+
+    if args.upload:
+        print(f"[*] Uploading {args.upload} to imgur...")
+        with open(args.upload, "rb") as f:
+            data=f.read()
+        from base64 import b64encode
+        b64data = b64encode(data)
+        ret=pymgur.post("image", {'image': b64data, 'type': 'base64'}, fmt='json')
+        if ret['success']:
+            print(f"[+] Successfully uploaded as {ret['data']['link']}")
+        else:
+            print("[x] Error while uploading image...")
+        return
+
     if args.image:
         print(f"[*] Downloading image {args.image}...")
         imgdata = pymgur.get(f"image/{args.image}", fmt='json')['data']
